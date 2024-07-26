@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package messages;
+
+import "proto/global.proto";
+
+option go_package = "server/proto/soundpb";
+
+message PlaySound {
+  string resource = 1;
+  Vector3M position = 2;
+  float volume = 3;
+}

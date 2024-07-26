@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package messages;
+
+import "proto/global.proto";
+
+option go_package = "server/proto/objectpb";
+
+message HumanSlot {
+  string recipe = 1;
+  string color = 2;
+}
+
+message EquippedItems {
+  ObjectWithVariation right_hand = 1;
+  ObjectWithVariation left_hand = 2;
+}
+
+message HumanCharacter {
+  string gender = 1;
+  map<string, HumanSlot> slots = 2;
+}
+
+message Object {
+  string UUID = 1;
+  string name = 2;
+  string resource = 3;
+  string variation = 4;
+  Vector3M position = 5;
+  Vector3M rotation = 6;
+
+  // Character or NPC settings
+  string type = 7;
+  float speed = 8;
+  float health = 9;
+  bool is_self = 10;
+
+  HumanCharacter human_character = 11;
+  EquippedItems equippedItems = 12;
+}
+
+message DestroyObject {
+  string UUID = 1;
+}
+
+message ObjectBatch {
+  repeated Object object = 1;
+}
+
+message ObjectState {
+  string UUID = 1;
+  int32 variant_index = 2;
+}
+
+message ObjectStateBatch {
+  repeated ObjectState object_states = 1;
+}
+
+message ObjectWithVariation {
+    string resource = 1;
+    string variation = 2;
+    float attack_radius = 3;
+}
+
+message Damage {
+    string UUID = 1;
+    int32 amount = 2;
+    int32 health_current = 3;
+    int32 health_max = 4;
+    bool is_crit = 5;
+}

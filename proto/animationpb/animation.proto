@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package messages;
+
+option go_package = "server/proto/animationpb";
+
+message Animation {
+   string UUID = 1;
+   string name = 2;
+   float speed = 3;
+   bool is_stop = 4;
+}

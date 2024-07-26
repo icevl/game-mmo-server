@@ -1,0 +1,278 @@
+package main
+
+import (
+	"bytes"
+	"encoding/base64"
+	"encoding/binary"
+	"fmt"
+	"io/ioutil"
+	"strings"
+
+	"golang.org/x/telemetry/config"
+)
+
+type Object struct {
+	uid                      int32
+	name                     string
+	resourcePath             string
+	position                 []float32
+	rotation                 []float32
+	scale                    []float32
+	isRigidbodySleepingStart bool
+	isWithColorProperty      bool
+	colorProperty            []float32
+	variationIndex           int32
+}
+
+type GameData struct {
+	Version      uint8
+	TerrainCount int32
+	TerrainData  TerrainData
+	ObjectsCount int32
+	Objects      []Object
+}
+
+type TerrainData struct {
+	heightmapResolution    int32
+	size                   []float32
+	heightmapWidth         int32
+	heightmapHeight        int32
+	alphamapResolution     int32
+	alphamapWidth          int32
+	alphamapHeight         int32
+	alphamapLayers         int32
+	alphamapTextureIndices []int32
+	heightmap              [][]float32
+	alphamaps              [][][]float32
+}
+
+func main() {
+	level, _ := loadLevel(config.WorldFilePath)
+
+	byteArray := level[0]
+
+	gameData, err := loadLevelDataFromByteArray(byteArray)
+	if err != nil {
+		fmt.Printf("Error processing data: %v\n", err)
+		return
+	}
+
+	for _, object := range gameData.Objects {
+		fmt.Printf("Object: %+v\n", object)
+	}
+}
+
+func loadLevel(filename string) ([][]byte, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil || len(data) == 0 {
+		return nil, fmt.Errorf("LoadFromStr: error reading file or file is empty. Error: %v", err)
+	}
+
+	savedLevelStr := string(data)
+	dataAsStringArray := strings.Split(savedLevelStr, "#")
+	if len(dataAsStringArray) != 2 {
+		return nil, fmt.Errorf("LoadFromStr: incorrect number of Base64 strings")
+	}
+
+	byteArrays := make([][]byte, 2)
+	for i, str := range dataAsStringArray {
+		decodedBytes, err := base64.StdEncoding.DecodeString(str)
+		if err != nil {
+			return nil, fmt.Errorf("LoadFromStr: base64 decoding error. Error: %v", err)
+		}
+		byteArrays[i] = decodedBytes
+	}
+
+	return byteArrays, nil
+}
+
+func getColorProperty(steam *bytes.Reader) []float32 {
+	var r, g, b float32
+
+	binary.Read(steam, binary.LittleEndian, &r)
+	binary.Read(steam, binary.LittleEndian, &g)
+	binary.Read(steam, binary.LittleEndian, &b)
+
+	return []float32{r, g, b}
+}
+
+func getVector(steam *bytes.Reader) []float32 {
+	var x, y, z float32
+
+	binary.Read(steam, binary.LittleEndian, &x)
+	binary.Read(steam, binary.LittleEndian, &y)
+	binary.Read(steam, binary.LittleEndian, &z)
+
+	return []float32{x, y, z}
+}
+
+func getInt32(steam *bytes.Reader) int32 {
+	var value int32
+	binary.Read(steam, binary.LittleEndian, &value)
+	return value
+}
+
+func getFloat(steam *bytes.Reader) float32 {
+	var value float32
+	binary.Read(steam, binary.LittleEndian, &value)
+	return value
+}
+
+func getQuaternion(steam *bytes.Reader) []float32 {
+	var x, y, z, w float32
+
+	binary.Read(steam, binary.LittleEndian, &x)
+	binary.Read(steam, binary.LittleEndian, &y)
+	binary.Read(steam, binary.LittleEndian, &z)
+	binary.Read(steam, binary.LittleEndian, &w)
+
+	return []float32{x, y, z, w}
+
+}
+
+func getString(steam *bytes.Reader) string {
+	length, _ := binary.ReadUvarint(steam)
+	resourcePath := make([]byte, length)
+
+	if _, err := steam.Read(resourcePath); err != nil {
+		panic("Cant read getString() resource path")
+	}
+
+	return string(resourcePath)
+}
+
+func getBool(steam *bytes.Reader) bool {
+	var value bool
+	binary.Read(steam, binary.LittleEndian, &value)
+	return value
+
+}
+
+func getTerrainData(stream *bytes.Reader) TerrainData {
+	heightmapResolution := getInt32(stream)
+	size := getVector(stream)
+	heightmapWidth := getInt32(stream)
+	heightmapHeight := getInt32(stream)
+
+	heightmap := make([][]float32, heightmapWidth)
+	for x := 0; x < int(heightmapWidth); x++ {
+		heightmap[x] = make([]float32, heightmapHeight)
+	}
+
+	for x := 0; x < int(heightmapWidth); x++ {
+		for y := 0; y < int(heightmapHeight); y++ {
+			heightmap[x][y] = getFloat(stream)
+		}
+	}
+
+	alphamapResolution := getInt32(stream)
+	alphamapWidth := getInt32(stream)
+	alphamapHeight := getInt32(stream)
+	alphamapLayers := getInt32(stream)
+
+	alphamaps := getAlphamaps(stream, alphamapWidth, alphamapHeight, alphamapLayers)
+
+	return TerrainData{
+		heightmapResolution: heightmapResolution,
+		size:                size,
+		heightmapWidth:      heightmapWidth,
+		heightmapHeight:     heightmapHeight,
+
+		alphamapResolution: alphamapResolution,
+		alphamapWidth:      alphamapWidth,
+		alphamapHeight:     alphamapHeight,
+		alphamapLayers:     alphamapLayers,
+		// alphamapTextureIndices: alphamapTextureIndices,
+		heightmap: heightmap,
+		alphamaps: alphamaps,
+	}
+}
+
+func getAlphamaps(stream *bytes.Reader, alphamapWidth, alphamapHeight, alphamapLayers int32) [][][]float32 {
+
+	alphamapTextureIndices := make([]int32, alphamapLayers)
+	for i := 0; i < int(alphamapLayers); i++ {
+		alphamapTextureIndices[i] = getInt32(stream)
+	}
+
+	alphamaps := make([][][]float32, alphamapWidth)
+	for x := int32(0); x < alphamapWidth; x++ {
+		alphamaps[x] = make([][]float32, alphamapHeight)
+		for y := int32(0); y < alphamapHeight; y++ {
+			alphamaps[x][y] = make([]float32, alphamapLayers)
+		}
+	}
+
+	for x := int32(0); x < alphamapWidth; x++ {
+		for y := int32(0); y < alphamapHeight; y++ {
+			for z := int32(0); z < alphamapLayers; z++ {
+				alphamaps[x][y][z] = getFloat(stream)
+			}
+		}
+	}
+
+	return alphamaps
+}
+
+func getObjects(stream *bytes.Reader, count int32) []Object {
+	objects := make([]Object, count)
+
+	for i := 0; i < int(count); i++ {
+		var colorProperty []float32
+
+		uid := getInt32(stream)
+		resourcePath := getString(stream)
+		position := getVector(stream)
+		rotation := getQuaternion(stream)
+		scale := getVector(stream)
+		isRigidbodySleepingStart := getBool(stream)
+		isWithColorProperty := getBool(stream)
+		variationIndex := getInt32(stream)
+		name := getString(stream)
+
+		if isWithColorProperty {
+			colorProperty = getColorProperty(stream)
+		}
+
+		objects[i] = Object{
+			uid:                      uid,
+			name:                     name,
+			resourcePath:             resourcePath,
+			position:                 position,
+			rotation:                 rotation,
+			scale:                    scale,
+			isRigidbodySleepingStart: isRigidbodySleepingStart,
+			isWithColorProperty:      isWithColorProperty,
+			colorProperty:            colorProperty,
+			variationIndex:           variationIndex,
+		}
+
+	}
+
+	return objects
+}
+
+func loadLevelDataFromByteArray(byteArray []byte) (*GameData, error) {
+	buf := bytes.NewReader(byteArray)
+
+	version, _ := buf.ReadByte()
+	terrainCount := getInt32(buf)
+	terrainData := TerrainData{}
+
+	if terrainCount > 0 {
+		terrainData = getTerrainData(buf)
+	}
+
+	objectsCount := getInt32(buf)
+	objects := getObjects(buf, objectsCount)
+
+	gameData := &GameData{
+		Version:      version,
+		TerrainCount: terrainCount,
+		TerrainData:  terrainData,
+		ObjectsCount: objectsCount,
+		Objects:      objects,
+	}
+
+	return gameData, nil
+}

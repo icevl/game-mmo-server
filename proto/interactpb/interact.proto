@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package messages;
+
+option go_package = "server/proto/interactpb";
+
+message Interact {
+   string UUID = 1;
+   string type = 2; //"hand", "contact"
+}
+
+message InteractWith {
+   string UUID = 1;
+   string target_uuid = 2;
+   string type = 3; //"hand", "contact"
+}
+
+message InteractQueue {
+   string UUID = 1;
+}

@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package messages;
+
+option go_package = "server/proto/messagepb";
+
+message Message {
+  string from_uuid = 1;
+  string to_uuid = 2;
+  string type = 3;
+  string text = 4;
+}

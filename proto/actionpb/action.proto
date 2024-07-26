@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package messages;
+
+option go_package = "server/proto/actionpb";
+
+import "proto/transformpb/transform.proto";
+import "proto/objectpb/object.proto";
+import "proto/messagepb/message.proto";
+import "proto/interactpb/interact.proto";
+import "proto/pingpb/ping.proto";
+import "proto/soundpb/sound.proto";
+import "proto/animationpb/animation.proto";
+
+message Action {
+    oneof action {
+        Transform transform = 1;
+        TransformRotation transformRotation = 2;
+        Object object = 3;
+        ObjectBatch objectBatch = 4;
+        DestroyObject destroyObject = 5;
+        ObjectState objectState = 6;
+        ObjectStateBatch objectStateBatch = 7;
+        Message message = 8;
+        Interact interact = 9;
+        Ping ping = 10;
+        Pong pong = 11;
+        PlaySound playSound = 12;
+        Animation animation = 13;
+        Damage damage = 14;
+        InteractWith interactWith = 15;
+        InteractQueue interactQueue = 16;
+        Teleport teleport = 17;
+    }
+}

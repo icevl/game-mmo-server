@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package messages;
+
+option go_package = "server/proto";
+
+
+message Vector3M {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}

@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package messages;
+
+import "proto/global.proto";
+
+option go_package = "server/proto/transformpb";
+
+message Transform {
+  string UUID = 1;
+  float speed = 2;
+  Vector3M position = 3;
+  Vector3M rotation = 4;
+}
+
+message TransformRotation {
+  string UUID = 1;
+  Vector3M rotation = 2;
+}
+
+message Teleport {
+  string UUID = 1;
+  Vector3M position = 2;
+  Vector3M rotation = 3;
+}

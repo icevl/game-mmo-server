@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package messages;
+
+option go_package = "server/proto/pingpb";
+
+message Ping {
+  string UUID = 1;
+}
+
+message Pong {
+  string UUID = 1;
+}
